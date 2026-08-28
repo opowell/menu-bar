@@ -125,8 +125,8 @@ function choose(item: MenuItemDef) {
   border-radius: var(--dc-radius-sm);
   background: transparent;
   color: var(--dc-fg-3);
-  font-size: 13px;
-  line-height: 1;
+  font-size: var(--dc-text-body);
+  line-height: var(--dc-leading-flat);
   cursor: default;
 }
 

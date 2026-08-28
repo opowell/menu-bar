@@ -31,11 +31,27 @@ export interface MenuItemDef {
   checked?: boolean
   /** A rule between groups of items. Nothing else on the item is read. */
   separator?: boolean
+  /**
+   * Names the items that follow rather than being one of them: a heading over
+   * the group that runs to the next heading or to the end of the menu.
+   *
+   * It is what tells two groups of ticked choices apart when they are about
+   * different things. The view a panel is showing and the shape of the space
+   * around it are each a short list of names with one of them ticked, and
+   * nothing in the shape of either says which is which — side by side they
+   * read as one list twice as long, and a submenu holding one of them only
+   * moves it beside the other. A name over each says it once. Only `label` is
+   * read.
+   *
+   * A menu whose items are all about one thing wants none: naming the only
+   * group there is says nothing the items under it did not already say.
+   */
+  heading?: boolean
 }
 
-/** An item that can be reached and chosen — neither a rule nor disabled. */
+/** An item that can be reached and chosen — no rule, no heading, not disabled. */
 export const isChoosable = (item: MenuItemDef): boolean =>
-  item.separator !== true && item.disabled !== true
+  item.separator !== true && item.heading !== true && item.disabled !== true
 
 /** Where a menu's top-left corner goes, in viewport coordinates. */
 export interface MenuAnchor {

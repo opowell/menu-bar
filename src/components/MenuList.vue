@@ -36,10 +36,39 @@ const openAt = ref<number | null>(null)
 const openAnchor = ref<MenuAnchor | null>(null)
 const openByKey = ref(false)
 
-/** Where a keyboard can land: not a rule, not disabled. */
+/** Where a keyboard can land: not a rule, not a heading, not disabled. */
 const reachable = computed(() =>
   props.items.flatMap((item, index) => (isChoosable(item) ? [index] : [])),
 )
+
+/** One group of items, and the heading that named it. */
+interface MenuSection {
+  heading?: MenuItemDef
+  entries: { item: MenuItemDef; index: number }[]
+}
+
+/**
+ * The items cut into the groups their headings name.
+ *
+ * Every entry keeps the index it had in `items`, so the refs, the keyboard
+ * order and the submenu that is open all still speak in one set of numbers
+ * whatever the sections do to the markup — the list is grouped for the eye and
+ * for a screen reader, not re-ordered.
+ *
+ * Items before the first heading are a section with nothing over it, which is
+ * what a menu that names no group at all is: one unnamed section, the same
+ * list as ever inside one more element.
+ */
+const sections = computed<MenuSection[]>(() => {
+  const out: MenuSection[] = [{ entries: [] }]
+  props.items.forEach((item, index) => {
+    if (item.heading) out.push({ heading: item, entries: [] })
+    else out[out.length - 1]?.entries.push({ item, index })
+  })
+  // A heading with nothing under it names nothing — and the section before the
+  // first one is empty whenever a menu opens with a heading.
+  return out.filter((section) => section.entries.length > 0)
+})
 
 /* ------------------------------------------------------------- positioning */
 
@@ -227,47 +256,66 @@ defineExpose({ root })
     :style="style"
     @keydown="onKeydown"
   >
-    <template
-      v-for="(item, index) in items"
-      :key="item.id ?? `${index}-${item.label ?? ''}`"
+    <!-- A named group is a `role="group"` around the items it names, which is
+         how a screen reader hears the name at all: the heading itself is drawn
+         for the eye and read to nobody twice. -->
+    <div
+      v-for="(section, nth) in sections"
+      :key="`${nth}-${section.heading?.label ?? ''}`"
+      class="dc-menu__group"
+      :role="section.heading ? 'group' : 'none'"
+      :aria-label="section.heading?.label"
     >
       <div
-        v-if="item.separator"
-        class="dc-menu__rule"
-        role="separator"
-      />
-      <button
-        v-else
-        :ref="(element) => { if (element) buttons[index] = element as HTMLElement }"
-        type="button"
-        class="dc-menu__item"
-        :role="item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'"
-        :aria-checked="item.checked === undefined ? undefined : item.checked"
-        :aria-haspopup="item.items?.length ? 'menu' : undefined"
-        :aria-expanded="item.items?.length ? openAt === index : undefined"
-        :aria-disabled="item.disabled ? 'true' : undefined"
-        :disabled="item.disabled"
-        :data-dc-item="item.id"
-        tabindex="-1"
-        @click="activate(index)"
-        @mouseenter="onEnter(index)"
+        v-if="section.heading"
+        class="dc-menu__heading dc-truncate"
+        aria-hidden="true"
+        :data-dc-item="section.heading.id"
       >
-        <span
-          class="dc-menu__mark"
-          aria-hidden="true"
-        >{{ item.checked ? '✓' : '' }}</span>
-        <span class="dc-menu__label dc-truncate">{{ item.label }}</span>
-        <span
-          v-if="item.shortcut"
-          class="dc-menu__key dc-mono"
-        >{{ item.shortcut }}</span>
-        <span
-          v-else-if="item.items?.length"
-          class="dc-menu__more"
-          aria-hidden="true"
-        >›</span>
-      </button>
-    </template>
+        {{ section.heading.label }}
+      </div>
+      <template
+        v-for="{ item, index } in section.entries"
+        :key="item.id ?? `${index}-${item.label ?? ''}`"
+      >
+        <div
+          v-if="item.separator"
+          class="dc-menu__rule"
+          role="separator"
+        />
+        <button
+          v-else
+          :ref="(element) => { if (element) buttons[index] = element as HTMLElement }"
+          type="button"
+          class="dc-menu__item"
+          :role="item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'"
+          :aria-checked="item.checked === undefined ? undefined : item.checked"
+          :aria-haspopup="item.items?.length ? 'menu' : undefined"
+          :aria-expanded="item.items?.length ? openAt === index : undefined"
+          :aria-disabled="item.disabled ? 'true' : undefined"
+          :disabled="item.disabled"
+          :data-dc-item="item.id"
+          tabindex="-1"
+          @click="activate(index)"
+          @mouseenter="onEnter(index)"
+        >
+          <span
+            class="dc-menu__mark"
+            aria-hidden="true"
+          >{{ item.checked ? '✓' : '' }}</span>
+          <span class="dc-menu__label dc-truncate">{{ item.label }}</span>
+          <span
+            v-if="item.shortcut"
+            class="dc-menu__key dc-mono"
+          >{{ item.shortcut }}</span>
+          <span
+            v-else-if="item.items?.length"
+            class="dc-menu__more"
+            aria-hidden="true"
+          >›</span>
+        </button>
+      </template>
+    </div>
 
     <!-- The level this one opened. It reports a choice straight through, so a
          choice anywhere closes the whole menu rather than one level of it. -->
@@ -300,6 +348,37 @@ defineExpose({ root })
   box-shadow: var(--dc-shadow);
 }
 
+/*
+ * A section is an element of its own because its heading has to name the items
+ * it is over — `role="group"` names what is inside it — and a flex column of
+ * its own so that one more level of nesting changes nothing about how the menu
+ * stacks.
+ */
+.dc-menu__group {
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * A heading is a different rank at a glance rather than a shorter item: quiet,
+ * and set to the left of the mark column every label is indented past, so the
+ * choices under it are still what the eye lands on. The space above it is what
+ * separates one group from the last — a rule as well would say it twice.
+ */
+.dc-menu__heading {
+  padding: 9px 8px 3px;
+  color: var(--dc-fg-3);
+  font-size: var(--dc-text-eyebrow);
+  font-weight: var(--dc-weight-semibold);
+  text-transform: var(--dc-caps);
+  letter-spacing: var(--dc-tracking-caps-wide);
+}
+
+/* Nothing to separate it from at the top of the menu. */
+.dc-menu__group:first-child .dc-menu__heading {
+  padding-top: 3px;
+}
+
 .dc-menu__item {
   display: flex;
   align-items: center;
@@ -310,7 +389,7 @@ defineExpose({ root })
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--dc-text-meta);
   text-align: left;
   cursor: default;
 }
@@ -330,7 +409,7 @@ defineExpose({ root })
   flex: 0 0 auto;
   width: 10px;
   color: var(--dc-accent);
-  font-size: 10px;
+  font-size: var(--dc-text-eyebrow);
 }
 
 .dc-menu__label {
@@ -342,7 +421,7 @@ defineExpose({ root })
 .dc-menu__more {
   flex: 0 0 auto;
   color: var(--dc-fg-3);
-  font-size: 11px;
+  font-size: var(--dc-text-micro);
 }
 
 .dc-menu__rule {
