@@ -6,14 +6,12 @@
  * modal once opened — with one menu up, moving the pointer along the bar swaps
  * to the next rather than making you click again.
  *
- * It carries the same three theming props the shell and the window do, and
- * imports the tokens for the same reason they do: a bar used on its own, above
- * something that is not a shell, still has to know what colour it is.
+ * It carries the same three theming props the shell and the window do. What
+ * they resolve against is `themes/tokens.css`, which the page loads once for
+ * every `.dc-shell` on it rather than each component bringing its own copy.
  */
-import '../style/tokens.css'
-
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import type { ShellTheme } from '../types'
+import type { ShellTheme } from 'themes'
 import type { MenuAnchor, MenuItemDef } from '../menu/types'
 import { isChoosable } from '../menu/types'
 import MenuList from './MenuList.vue'

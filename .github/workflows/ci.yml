@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      # dist/ is committed, and it is what the git dependency serves. A build
+      # that differs from the commit means somebody shipped stale artifacts.
+      - name: dist/ is what src/ builds
+        run: |
+          git diff --exit-code -- dist || {
+            echo "::error::dist/ differs from a fresh build. Run 'npm run build' and commit it."
+            exit 1
+          }
