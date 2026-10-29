@@ -62,8 +62,15 @@ component takes — see [themes](https://github.com/opowell/themes).
 npm install github:opowell/menu-bar#v0.1.0
 ```
 
-`vue` is a peer dependency. [`themes`](https://github.com/opowell/themes),
-whose tokens the menus resolve against, comes with it.
+`vue` is a peer dependency, and so is
+[`themes`](https://github.com/opowell/themes), whose tokens the menus resolve
+against: install it beside this package. It is a peer rather than a dependency
+because pnpm 11 refuses a git-hosted package that another package pulls in
+(`blockExoticSubdeps`); one the app lists itself is fine.
+
+```bash
+npm install github:opowell/themes#v0.1.0
+```
 
 ## Stylesheets
 
